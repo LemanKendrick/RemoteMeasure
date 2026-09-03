@@ -152,7 +152,7 @@
     <div class="cam-msg" id="camMsg">Camera preview appears here once enabled.</div>
     <video id="video" playsinline muted style="display:none;"></video>
     <div class="crosshair" id="crosshair" style="display:none;">
-      <div class="crosshair-ring"></div>
+      <div class="crosshair-ring" id="crosshairRing"></div>
     </div>
     <div class="tilt-readout" id="tiltReadout" style="display:none;">
       <div><span class="lbl">tilt</span><br><span id="tiltVal">--</span>&deg;</div>
@@ -206,6 +206,7 @@
   <p>The reference object's known height gives D. That same D, applied to the target's own top angle (sighted from the same base), gives the target's height:</p>
   <p class="formula">D = H_ref / |tan(&alpha;1) &minus; tan(&beta;)|</p>
   <p class="formula">H_target = D &times; |tan(&alpha;2) &minus; tan(&beta;)|</p>
+  <p>The tilt readout's "vs vertical" hint assumes the phone is held upright in portrait, camera on the back pointing at the target &mdash; that position reads about 90&deg; on most phones' tilt sensor when truly plumb. It's a guide for calibrating, not a substitute for a real level reference.</p>
   <p>Accuracy depends on how precisely you aim the crosshair and how level your calibration was. Larger reference heights and shorter distances reduce angle-reading error.</p>
 </details>
 
@@ -256,7 +257,7 @@
    'camMsg','tiltReadout','tiltVal','calStatus','refSection','refHeight',
    'refReadouts','resultSection','resultHeight','resultDistance','resetBtn',
    'manualToggle','manualSection','mRef','mBase','mRefTop','mTargetTop','manualCalc',
-   'secureWarn','actionBtn','actionHint','stickyPanel','stickyAnchor'
+   'secureWarn','actionBtn','actionHint','stickyPanel','stickyAnchor','crosshairRing'
   ].forEach(function(id){ els[id] = document.getElementById(id); });
 
   // ---- Pin the sighting panel to the top once it scrolls there ----
@@ -353,9 +354,24 @@
   function updateTiltDisplay(){
     if(state.currentBeta == null) return;
     els.tiltVal.textContent = state.currentBeta.toFixed(1);
-    if(state.betaZero != null){
-      var rel = state.currentBeta - state.betaZero;
-      els.calStatus.textContent = (rel >= 0 ? '+' : '') + rel.toFixed(1) + '\u00b0 rel.';
+    if(stage === 'calibrate'){
+      // Vertical (camera pointed at the horizon, phone held plumb) reads ~90 on
+      // most phones' beta axis. Show how far off that the current tilt is.
+      var delta = state.currentBeta - 90;
+      var absDelta = Math.abs(delta);
+      var color, word;
+      if(absDelta <= 1){ color = '#2f6b4f'; word = 'good'; }
+      else if(absDelta <= 3){ color = '#c98a2e'; word = 'close'; }
+      else { color = '#c1443b'; word = 'off'; }
+      els.calStatus.innerHTML = '<span style="color:' + color + '">' +
+        (delta >= 0 ? '+' : '') + delta.toFixed(1) + '\u00b0 vs vertical (' + word + ')</span>';
+      if(els.crosshairRing) els.crosshairRing.style.borderColor = color;
+    } else {
+      if(els.crosshairRing) els.crosshairRing.style.borderColor = 'rgba(255,255,255,0.6)';
+      if(state.betaZero != null){
+        var rel = state.currentBeta - state.betaZero;
+        els.calStatus.textContent = (rel >= 0 ? '+' : '') + rel.toFixed(1) + '\u00b0 rel.';
+      }
     }
   }
   els.tiltBtn.addEventListener('click', function(){
@@ -427,7 +443,7 @@
     els.refSection.classList.toggle('disabled', stage === 'calibrate' || stage === 'blocked');
     if(stage === 'calibrate'){
       els.actionBtn.textContent = 'Calibrate level (aim at true horizon, tap)';
-      els.actionHint.textContent = 'Hold the phone level with the horizon, then tap.';
+      els.actionHint.textContent = 'Hold against a plumb reference or a distant horizon. Ring turns green near vertical, then tap.';
     } else if(stage === 'base'){
       els.actionBtn.textContent = 'Capture base angle';
       els.actionHint.textContent = 'Aim the crosshair at the shared base of both objects, then tap.';
