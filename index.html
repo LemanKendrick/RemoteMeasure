@@ -156,7 +156,7 @@
     </div>
     <div class="tilt-readout" id="tiltReadout" style="display:none;">
       <div><span class="lbl">tilt</span><br><span id="tiltVal">--</span>&deg;</div>
-      <div style="text-align:right;"><span class="lbl">calibration</span><br><span id="calStatus">not set</span></div>
+      <div style="text-align:right;"><span class="lbl" id="calLabel">calibration</span><br><span id="calStatus">not set</span></div>
     </div>
   </div>
   <button id="actionBtn" class="primary" disabled>Enable sensors above to begin</button>
@@ -179,6 +179,7 @@
     <div class="num" id="resultHeight">--</div>
     <div class="cap">target height &mdash; tap "capture target top" again for another object</div>
   </div>
+  <div class="readout-row"><span>Target incline angle</span><span class="val" id="resultAngle">--</span></div>
   <div class="readout-row"><span>Horizontal distance (D)</span><span class="val" id="resultDistance">--</span></div>
   <button id="resetBtn" style="margin-top:12px;">Start new measurement (new reference)</button>
 </section>
@@ -206,6 +207,7 @@
   <p>The reference object's known height gives D. That same D, applied to the target's own top angle (sighted from the same base), gives the target's height:</p>
   <p class="formula">D = H_ref / |tan(&alpha;1) &minus; tan(&beta;)|</p>
   <p class="formula">H_target = D &times; |tan(&alpha;2) &minus; tan(&beta;)|</p>
+  <p>Once you calibrate, the live number in the viewfinder (labeled "incline") is your elevation angle from horizontal, updating in real time &mdash; you can use it as a standalone clinometer just by calibrating and reading that number, without running the rest of the height workflow.</p>
   <p>The tilt readout's "vs vertical" hint assumes the phone is held upright in portrait, camera on the back pointing at the target &mdash; that position reads about 90&deg; on most phones' tilt sensor when truly plumb. It's a guide for calibrating, not a substitute for a real level reference.</p>
   <p>Accuracy depends on how precisely you aim the crosshair and how level your calibration was. Larger reference heights and shorter distances reduce angle-reading error.</p>
 </details>
@@ -255,9 +257,9 @@
   var els = {};
   ['camBtn','tiltBtn','camStatus','tiltStatus','video','crosshair',
    'camMsg','tiltReadout','tiltVal','calStatus','refSection','refHeight',
-   'refReadouts','resultSection','resultHeight','resultDistance','resetBtn',
+   'refReadouts','resultSection','resultHeight','resultDistance','resultAngle','resetBtn',
    'manualToggle','manualSection','mRef','mBase','mRefTop','mTargetTop','manualCalc',
-   'secureWarn','actionBtn','actionHint','stickyPanel','stickyAnchor','crosshairRing'
+   'secureWarn','actionBtn','actionHint','stickyPanel','stickyAnchor','crosshairRing','calLabel'
   ].forEach(function(id){ els[id] = document.getElementById(id); });
 
   // ---- Pin the sighting panel to the top once it scrolls there ----
@@ -369,8 +371,9 @@
     } else {
       if(els.crosshairRing) els.crosshairRing.style.borderColor = 'rgba(255,255,255,0.6)';
       if(state.betaZero != null){
+        els.calLabel.textContent = 'incline';
         var rel = state.currentBeta - state.betaZero;
-        els.calStatus.textContent = (rel >= 0 ? '+' : '') + rel.toFixed(1) + '\u00b0 rel.';
+        els.calStatus.textContent = (rel >= 0 ? '+' : '') + rel.toFixed(1) + '\u00b0';
       }
     }
   }
@@ -425,10 +428,13 @@
     els.refReadouts.innerHTML = html;
   }
 
-  function showResult(h, d){
+  function showResult(h, d, angleDeg){
     els.resultSection.style.display = 'block';
     els.resultHeight.textContent = formatFtIn(h);
     els.resultDistance.textContent = formatFtIn(d);
+    els.resultAngle.textContent = (angleDeg != null)
+      ? ((angleDeg >= 0 ? '+' : '') + angleDeg.toFixed(1) + '\u00b0')
+      : '--';
   }
 
   // Single dynamic action button, driven by `stage`
@@ -516,9 +522,10 @@
       renderRefReadouts();
       stage = 'target';
     } else if(stage === 'target'){
-      var d2 = tanDiff(elevOf(angle), elevOf(state.baseRaw));
+      var targetAngle = elevOf(angle);
+      var d2 = tanDiff(targetAngle, elevOf(state.baseRaw));
       var h = distanceD * d2;
-      showResult(h, distanceD);
+      showResult(h, distanceD, targetAngle);
     }
     renderAction();
   }
@@ -560,7 +567,7 @@
     if(dDiff === 0){ alert('Base and reference-top angles cannot be equal.'); return; }
     var d = refH / dDiff;
     var h = d * tanDiff(targetTop, base);
-    showResult(h, d);
+    showResult(h, d, targetTop);
   });
 
   renderAction();
