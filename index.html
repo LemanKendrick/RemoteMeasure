@@ -131,6 +131,11 @@
 <h1>Remote height calculator</h1>
 <p class="sub">Measure an object's height from a distance using two sighted angles and a known reference height.</p>
 
+<div class="row" style="margin-bottom:14px;">
+  <button id="modeHeightBtn" class="primary">Height calculator</button>
+  <button id="modeClinoBtn">Clinometer</button>
+</div>
+
 <div id="secureWarn" class="warn" style="display:none;">
   Camera and tilt sensors need a secure connection (https, or localhost). Deploy this to GitHub Pages or another https host to enable sensors.
 </div>
@@ -171,6 +176,16 @@
   <label for="refHeight">Reference height (feet-inches, e.g. 5-10, or decimal feet)</label>
   <input type="text" id="refHeight" placeholder="5-10">
   <div id="refReadouts" style="margin-top:6px;"></div>
+</section>
+
+<section id="clinoSection" style="display:none;">
+  <p class="step-label"><span class="step-num">2</span> Clinometer</p>
+  <div class="result-big">
+    <div class="num" id="clinoCurrent">--</div>
+    <div class="cap" id="clinoCurrentSub">tap "hold reading" above</div>
+  </div>
+  <div id="clinoLog"></div>
+  <button id="clinoClear" style="margin-top:8px;">Clear log</button>
 </section>
 
 <section id="resultSection" style="display:none;">
@@ -259,7 +274,8 @@
    'camMsg','tiltReadout','tiltVal','calStatus','refSection','refHeight',
    'refReadouts','resultSection','resultHeight','resultDistance','resultAngle','resetBtn',
    'manualToggle','manualSection','mRef','mBase','mRefTop','mTargetTop','manualCalc',
-   'secureWarn','actionBtn','actionHint','stickyPanel','stickyAnchor','crosshairRing','calLabel'
+   'secureWarn','actionBtn','actionHint','stickyPanel','stickyAnchor','crosshairRing','calLabel',
+   'modeHeightBtn','modeClinoBtn','clinoSection','clinoCurrent','clinoCurrentSub','clinoLog','clinoClear'
   ].forEach(function(id){ els[id] = document.getElementById(id); });
 
   // ---- Pin the sighting panel to the top once it scrolls there ----
@@ -313,6 +329,8 @@
 
   // stage: 'blocked' -> 'calibrate' -> 'base' -> 'refTop' -> 'target'
   var stage = 'blocked';
+  var mode = 'height'; // 'height' | 'clinometer'
+  var clinoReadings = [];
 
   var saved = loadState();
   if(saved.refHeight) els.refHeight.value = saved.refHeight;
@@ -411,6 +429,60 @@
     }
   }
 
+  function stageForHeightMode(){
+    if(state.betaZero == null) return 'calibrate';
+    if(state.baseRaw == null) return 'base';
+    if(distanceD == null) return 'refTop';
+    return 'target';
+  }
+  function stageForClinoMode(){
+    return state.betaZero == null ? 'calibrate' : 'clino';
+  }
+
+  function applyModeVisibility(){
+    var isHeight = mode === 'height';
+    els.refSection.style.display = isHeight ? '' : 'none';
+    els.resultSection.style.display = (isHeight && els.resultHeight.textContent !== '--') ? 'block' : 'none';
+    els.manualToggle.style.display = isHeight ? '' : 'none';
+    if(!isHeight) els.manualSection.style.display = 'none';
+    els.clinoSection.style.display = isHeight ? 'none' : 'block';
+    els.modeHeightBtn.classList.toggle('primary', isHeight);
+    els.modeClinoBtn.classList.toggle('primary', !isHeight);
+  }
+
+  els.modeHeightBtn.addEventListener('click', function(){
+    if(mode === 'height') return;
+    mode = 'height';
+    if(stage !== 'blocked') stage = stageForHeightMode();
+    applyModeVisibility();
+    renderAction();
+  });
+  els.modeClinoBtn.addEventListener('click', function(){
+    if(mode === 'clinometer') return;
+    mode = 'clinometer';
+    if(stage !== 'blocked') stage = stageForClinoMode();
+    applyModeVisibility();
+    renderAction();
+  });
+
+  function renderClinoLog(){
+    if(clinoReadings.length === 0){
+      els.clinoLog.innerHTML = '<p class="sub" style="margin:6px 0 0;">No readings held yet.</p>';
+      return;
+    }
+    els.clinoLog.innerHTML = clinoReadings.map(function(r){
+      return '<div class="readout-row"><span>' + r.time + '</span><span class="val">' +
+        (r.deg >= 0 ? '+' : '') + r.deg.toFixed(1) + '\u00b0 &middot; ' +
+        r.percent.toFixed(1) + '% &middot; ' + r.pitch12.toFixed(2) + '/12</span></div>';
+    }).join('');
+  }
+  els.clinoClear.addEventListener('click', function(){
+    clinoReadings = [];
+    renderClinoLog();
+    els.clinoCurrent.textContent = '--';
+    els.clinoCurrentSub.textContent = 'tap "hold reading" above';
+  });
+
   function elevOf(raw){ return raw - state.betaZero; }
   function tanDiff(a, b){ return Math.abs(Math.tan(a * Math.PI/180) - Math.tan(b * Math.PI/180)); }
 
@@ -446,7 +518,9 @@
       return;
     }
     els.actionBtn.disabled = false;
-    els.refSection.classList.toggle('disabled', stage === 'calibrate' || stage === 'blocked');
+    if(mode === 'height'){
+      els.refSection.classList.toggle('disabled', stage === 'calibrate' || stage === 'blocked');
+    }
     if(stage === 'calibrate'){
       els.actionBtn.textContent = 'Calibrate level (aim at true horizon, tap)';
       els.actionHint.textContent = 'Hold against a plumb reference or a distant horizon. Ring turns green near vertical, then tap.';
@@ -459,6 +533,9 @@
     } else if(stage === 'target'){
       els.actionBtn.textContent = 'Capture target top';
       els.actionHint.textContent = 'Aim at the top of the object you\'re measuring, then tap. Tap again for another object.';
+    } else if(stage === 'clino'){
+      els.actionBtn.textContent = 'Hold reading';
+      els.actionHint.textContent = 'Aim and hold steady, then tap. Each tap logs a new reading below.';
     }
   }
 
@@ -498,7 +575,17 @@
     if(stage === 'calibrate'){
       state.betaZero = angle;
       els.calStatus.textContent = 'set (' + state.betaZero.toFixed(1) + '\u00b0)';
-      stage = 'base';
+      stage = (mode === 'clinometer') ? 'clino' : 'base';
+    } else if(stage === 'clino'){
+      var deg = elevOf(angle);
+      var rad = deg * Math.PI / 180;
+      var percent = Math.tan(rad) * 100;
+      var pitch12 = Math.tan(rad) * 12;
+      clinoReadings.unshift({ deg: deg, percent: percent, pitch12: pitch12, time: new Date().toLocaleTimeString() });
+      if(clinoReadings.length > 25) clinoReadings.pop();
+      renderClinoLog();
+      els.clinoCurrent.textContent = (deg >= 0 ? '+' : '') + deg.toFixed(1) + '\u00b0';
+      els.clinoCurrentSub.textContent = percent.toFixed(1) + '% grade \u00b7 ' + pitch12.toFixed(2) + ' in 12 pitch';
     } else if(stage === 'base'){
       state.baseRaw = angle;
       renderRefReadouts();
@@ -570,6 +657,8 @@
     showResult(h, d, targetTop);
   });
 
+  renderClinoLog();
+  applyModeVisibility();
   renderAction();
 })();
 </script>
