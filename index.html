@@ -456,39 +456,76 @@
     }
   }
 
-  els.actionBtn.addEventListener('click', function(){
-    if(state.currentBeta == null) return;
+  // Every capture (calibrate/base/ref-top/target) averages over a short
+  // "hold steady" window instead of trusting one instantaneous reading.
+  // This matters especially near beta=90 (phone held vertical), where the
+  // underlying Euler-angle math is prone to brief noisy spikes even when
+  // the phone barely moves. Using the median of the samples (not the mean)
+  // rejects an occasional spike rather than letting it skew the result.
+  function captureAveraged(callback){
+    els.actionBtn.disabled = true;
+    var priorHint = els.actionHint.textContent;
+    els.actionHint.textContent = 'Hold steady\u2026';
+    var samples = [];
+    var start = performance.now();
+    var duration = 600;
+    function tick(){
+      if(state.currentBeta != null) samples.push(state.currentBeta);
+      if(performance.now() - start < duration){
+        requestAnimationFrame(tick);
+      } else {
+        if(samples.length === 0){
+          els.actionHint.textContent = priorHint;
+          els.actionBtn.disabled = false;
+          return;
+        }
+        samples.sort(function(a,b){ return a-b; });
+        var mid = Math.floor(samples.length/2);
+        var median = samples.length % 2 ? samples[mid] : (samples[mid-1]+samples[mid])/2;
+        callback(median);
+      }
+    }
+    tick();
+  }
+
+  function performCapture(angle){
     if(stage === 'calibrate'){
-      state.betaZero = state.currentBeta;
+      state.betaZero = angle;
       els.calStatus.textContent = 'set (' + state.betaZero.toFixed(1) + '\u00b0)';
       stage = 'base';
     } else if(stage === 'base'){
-      state.baseRaw = state.currentBeta;
+      state.baseRaw = angle;
       renderRefReadouts();
       stage = 'refTop';
     } else if(stage === 'refTop'){
       var refH = parseFtIn(els.refHeight.value);
       if(refH == null){
         els.actionHint.textContent = 'Enter the reference height above before capturing this angle.';
+        renderAction();
         return;
       }
-      state.refTopRaw = state.currentBeta;
+      state.refTopRaw = angle;
       var diff = tanDiff(elevOf(state.refTopRaw), elevOf(state.baseRaw));
       if(diff === 0){
         els.actionHint.textContent = 'Base and reference-top angles matched \u2014 aim higher and recapture.';
         state.refTopRaw = null;
+        renderAction();
         return;
       }
       distanceD = refH / diff;
       renderRefReadouts();
       stage = 'target';
     } else if(stage === 'target'){
-      var targetRaw = state.currentBeta;
-      var d2 = tanDiff(elevOf(targetRaw), elevOf(state.baseRaw));
+      var d2 = tanDiff(elevOf(angle), elevOf(state.baseRaw));
       var h = distanceD * d2;
       showResult(h, distanceD);
     }
     renderAction();
+  }
+
+  els.actionBtn.addEventListener('click', function(){
+    if(state.currentBeta == null) return;
+    captureAveraged(performCapture);
   });
 
   els.refHeight.addEventListener('change', function(){
