@@ -39,11 +39,17 @@
     display:inline-flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0;
   }
 
-  /* Sticky sighting panel: viewfinder + the one action button, pinned while scrolling */
+  /* Sighting panel: viewfinder + the one action button. JS switches this to
+     position:fixed once it scrolls to the top of the viewport (more reliable
+     across mobile browsers than position:sticky, which has known quirks with
+     dynamic toolbar/address-bar resizing on iOS and some Android browsers). */
   #stickyPanel{
-    position:sticky; top:0; z-index:20; background:var(--bg);
-    padding:10px 16px 12px; margin:0 auto; max-width:520px;
-    border-bottom:1px solid var(--line); box-shadow:0 4px 10px rgba(0,0,0,0.06);
+    background:var(--bg); padding:10px 16px 12px; margin:0 auto; max-width:520px;
+    border-bottom:1px solid var(--line);
+  }
+  #stickyPanel.pinned{
+    position:fixed; top:0; left:0; right:0; z-index:20;
+    box-shadow:0 4px 10px rgba(0,0,0,0.12);
   }
   .viewfinder{
     position:relative; width:100%; height:34vh; min-height:190px; max-height:280px;
@@ -140,6 +146,7 @@
 
 </div><!-- /wrap (pause so sticky panel isn't nested inside a non-sticky ancestor) -->
 
+<div id="stickyAnchor" style="height:1px;"></div>
 <div id="stickyPanel">
   <div class="viewfinder" id="viewfinder">
     <div class="cam-msg" id="camMsg">Camera preview appears here once enabled.</div>
@@ -249,8 +256,43 @@
    'camMsg','tiltReadout','tiltVal','calStatus','refSection','refHeight',
    'refReadouts','resultSection','resultHeight','resultDistance','resetBtn',
    'manualToggle','manualSection','mRef','mBase','mRefTop','mTargetTop','manualCalc',
-   'secureWarn','actionBtn','actionHint'
+   'secureWarn','actionBtn','actionHint','stickyPanel','stickyAnchor'
   ].forEach(function(id){ els[id] = document.getElementById(id); });
+
+  // ---- Pin the sighting panel to the top once it scrolls there ----
+  (function setupPin(){
+    var placeholder = document.createElement('div');
+    placeholder.style.display = 'none';
+    els.stickyPanel.parentNode.insertBefore(placeholder, els.stickyPanel);
+
+    function pin(){
+      if(els.stickyPanel.classList.contains('pinned')) return;
+      var rect = els.stickyPanel.getBoundingClientRect();
+      placeholder.style.height = rect.height + 'px';
+      placeholder.style.display = 'block';
+      els.stickyPanel.classList.add('pinned');
+    }
+    function unpin(){
+      if(!els.stickyPanel.classList.contains('pinned')) return;
+      els.stickyPanel.classList.remove('pinned');
+      placeholder.style.display = 'none';
+    }
+
+    if('IntersectionObserver' in window){
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){
+          if(entry.boundingClientRect.top < 0){ pin(); } else { unpin(); }
+        });
+      }, { threshold: [0] });
+      io.observe(els.stickyAnchor);
+    } else {
+      // Fallback for older browsers without IntersectionObserver
+      window.addEventListener('scroll', function(){
+        var top = els.stickyAnchor.getBoundingClientRect().top;
+        if(top < 0){ pin(); } else { unpin(); }
+      }, { passive: true });
+    }
+  })();
 
   if(location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1'){
     els.secureWarn.style.display = 'block';
