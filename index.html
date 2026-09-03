@@ -19,11 +19,13 @@
     }
   }
   *{box-sizing:border-box;}
+  html,body{margin:0;}
   body{
-    margin:0; background:var(--bg); color:var(--ink);
+    background:var(--bg); color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-    line-height:1.5; padding:16px; max-width:520px; margin-inline:auto;
+    line-height:1.5;
   }
+  .wrap{ padding:16px; max-width:520px; margin-inline:auto; }
   h1{font-size:20px; font-weight:500; margin:0 0 4px;}
   .sub{color:var(--muted); font-size:14px; margin:0 0 20px;}
   section{
@@ -36,9 +38,16 @@
     width:20px; height:20px; border-radius:50%; background:var(--accent); color:var(--accent-ink);
     display:inline-flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0;
   }
+
+  /* Sticky sighting panel: viewfinder + the one action button, pinned while scrolling */
+  #stickyPanel{
+    position:sticky; top:0; z-index:20; background:var(--bg);
+    padding:10px 16px 12px; margin:0 auto; max-width:520px;
+    border-bottom:1px solid var(--line); box-shadow:0 4px 10px rgba(0,0,0,0.06);
+  }
   .viewfinder{
-    position:relative; width:100%; aspect-ratio:3/4; background:#000;
-    border-radius:8px; overflow:hidden; margin-bottom:10px;
+    position:relative; width:100%; height:34vh; min-height:190px; max-height:280px;
+    background:#000; border-radius:8px; overflow:hidden; margin-bottom:8px;
   }
   .viewfinder video{width:100%; height:100%; object-fit:cover; display:block;}
   .crosshair{
@@ -55,21 +64,27 @@
     border:1.5px solid rgba(255,255,255,0.6); border-radius:50%; transform:translate(-50%,-50%);
   }
   .tilt-readout{
-    position:absolute; left:0; right:0; bottom:0; padding:8px 10px;
+    position:absolute; left:0; right:0; bottom:0; padding:6px 10px;
     background:rgba(0,0,0,0.55); color:#fff; font-family:var(--mono);
-    font-size:18px; display:flex; justify-content:space-between; align-items:baseline;
+    font-size:17px; display:flex; justify-content:space-between; align-items:baseline;
   }
   .tilt-readout .lbl{font-size:11px; opacity:0.75; font-family:-apple-system,sans-serif;}
   .cam-msg{
     display:flex; align-items:center; justify-content:center; height:100%;
     color:#aaa; font-size:13px; text-align:center; padding:20px;
   }
+  #actionBtn{
+    font-size:15px; padding:12px 14px;
+  }
+  #actionHint{
+    font-size:12px; color:var(--muted); text-align:center; margin:6px 0 0;
+  }
+
   button{
     font:inherit; border:1px solid var(--line); background:var(--panel); color:var(--ink);
     padding:10px 14px; border-radius:8px; cursor:pointer; font-size:14px; width:100%;
   }
   button.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
-  button.small{ width:auto; padding:8px 12px; font-size:13px; }
   button:disabled{opacity:0.4; cursor:not-allowed;}
   .row{display:flex; gap:8px;}
   .row > *{flex:1;}
@@ -84,9 +99,7 @@
   }
   .readout-row:first-child{border-top:none;}
   .readout-row .val{font-family:var(--mono); font-weight:500;}
-  .result-big{
-    text-align:center; padding:14px 0 4px;
-  }
+  .result-big{ text-align:center; padding:14px 0 4px; }
   .result-big .num{font-size:34px; font-weight:500; font-family:var(--mono);}
   .result-big .cap{font-size:13px; color:var(--muted);}
   .warn{
@@ -107,12 +120,13 @@
 </style>
 </head>
 <body>
+<div class="wrap">
 
 <h1>Remote height calculator</h1>
-<p class="sub">Measure an object's height from a distance using two sighted angles and a known reference height. No tape measure or rangefinder needed.</p>
+<p class="sub">Measure an object's height from a distance using two sighted angles and a known reference height.</p>
 
 <div id="secureWarn" class="warn" style="display:none;">
-  Camera and tilt sensors need a secure connection (https, or localhost). If this file was opened directly from disk, deploy it to GitHub Pages or another https host to enable sensors.
+  Camera and tilt sensors need a secure connection (https, or localhost). Deploy this to GitHub Pages or another https host to enable sensors.
 </div>
 
 <section id="setupSection">
@@ -124,7 +138,9 @@
   <p class="sub" style="margin:10px 0 0;"><span id="camStatus"><span class="status-dot"></span>Camera off</span> &nbsp;&middot;&nbsp; <span id="tiltStatus"><span class="status-dot"></span>Tilt off</span></p>
 </section>
 
-<section id="viewSection" class="disabled">
+</div><!-- /wrap (pause so sticky panel isn't nested inside a non-sticky ancestor) -->
+
+<div id="stickyPanel">
   <div class="viewfinder" id="viewfinder">
     <div class="cam-msg" id="camMsg">Camera preview appears here once enabled.</div>
     <video id="video" playsinline muted style="display:none;"></video>
@@ -136,35 +152,28 @@
       <div style="text-align:right;"><span class="lbl">calibration</span><br><span id="calStatus">not set</span></div>
     </div>
   </div>
-  <button id="calBtn" disabled>Calibrate level (aim at true horizon, tap)</button>
-</section>
+  <button id="actionBtn" class="primary" disabled>Enable sensors above to begin</button>
+  <p id="actionHint">Turn on the camera and/or tilt sensor first.</p>
+</div>
+
+<div class="wrap">
 
 <section id="refSection" class="disabled">
-  <p class="step-label"><span class="step-num">2</span> Set the reference</p>
-  <p class="sub" style="margin-top:-4px;">Place a known-height object (a person, a marked pole) at the base of the target, so both share the same distance.</p>
+  <p class="step-label"><span class="step-num">2</span> Reference height</p>
+  <p class="sub" style="margin-top:-4px;">Place a known-height object (a person, a marked pole) at the base of the target, so both share the same distance. Enter its height before capturing the reference top angle.</p>
   <label for="refHeight">Reference height (feet-inches, e.g. 5-10, or decimal feet)</label>
   <input type="text" id="refHeight" placeholder="5-10">
-  <div class="row" style="margin-top:10px;">
-    <button id="captureBase" disabled>Capture base angle</button>
-    <button id="captureRefTop" disabled>Capture reference top</button>
-  </div>
   <div id="refReadouts" style="margin-top:6px;"></div>
 </section>
 
-<section id="targetSection" class="disabled">
-  <p class="step-label"><span class="step-num">3</span> Measure the target</p>
-  <p class="sub" style="margin-top:-4px;">Without moving, aim at the top of the object whose height you want.</p>
-  <button id="captureTarget" disabled>Capture target top</button>
-</section>
-
 <section id="resultSection" style="display:none;">
-  <p class="step-label"><span class="step-num">4</span> Result</p>
+  <p class="step-label"><span class="step-num">3</span> Result</p>
   <div class="result-big">
     <div class="num" id="resultHeight">--</div>
-    <div class="cap">target height</div>
+    <div class="cap">target height &mdash; tap "capture target top" again for another object</div>
   </div>
   <div class="readout-row"><span>Horizontal distance (D)</span><span class="val" id="resultDistance">--</span></div>
-  <button id="resetBtn" style="margin-top:12px;">Start new measurement</button>
+  <button id="resetBtn" style="margin-top:12px;">Start new measurement (new reference)</button>
 </section>
 
 <button id="manualToggle" class="toggle-link">Enter angles manually instead (no sensor)</button>
@@ -192,6 +201,8 @@
   <p class="formula">H_target = D &times; |tan(&alpha;2) &minus; tan(&beta;)|</p>
   <p>Accuracy depends on how precisely you aim the crosshair and how level your calibration was. Larger reference heights and shorter distances reduce angle-reading error.</p>
 </details>
+
+</div><!-- /wrap -->
 
 <script>
 (function(){
@@ -234,11 +245,11 @@
   }
 
   var els = {};
-  ['camBtn','tiltBtn','camStatus','tiltStatus','viewSection','video','crosshair',
-   'camMsg','tiltReadout','tiltVal','calStatus','calBtn','refSection','refHeight',
-   'captureBase','captureRefTop','refReadouts','targetSection','captureTarget',
-   'resultSection','resultHeight','resultDistance','resetBtn','manualToggle',
-   'manualSection','mRef','mBase','mRefTop','mTargetTop','manualCalc','secureWarn'
+  ['camBtn','tiltBtn','camStatus','tiltStatus','video','crosshair',
+   'camMsg','tiltReadout','tiltVal','calStatus','refSection','refHeight',
+   'refReadouts','resultSection','resultHeight','resultDistance','resetBtn',
+   'manualToggle','manualSection','mRef','mBase','mRefTop','mTargetTop','manualCalc',
+   'secureWarn','actionBtn','actionHint'
   ].forEach(function(id){ els[id] = document.getElementById(id); });
 
   if(location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1'){
@@ -250,10 +261,13 @@
     currentBeta: null,
     baseRaw: null,
     refTopRaw: null,
-    targetTopRaw: null,
     camOn: false,
     tiltOn: false
   };
+  var distanceD = null;
+
+  // stage: 'blocked' -> 'calibrate' -> 'base' -> 'refTop' -> 'target'
+  var stage = 'blocked';
 
   var saved = loadState();
   if(saved.refHeight) els.refHeight.value = saved.refHeight;
@@ -286,8 +300,7 @@
     window.addEventListener('deviceorientation', function(e){
       if(e.beta == null) return;
       state.currentBeta = e.beta;
-      var raf = attachOrientation._raf;
-      if(!raf){
+      if(!attachOrientation._raf){
         attachOrientation._raf = requestAnimationFrame(function(){
           attachOrientation._raf = null;
           updateTiltDisplay();
@@ -311,11 +324,8 @@
     }
     if(typeof DOE.requestPermission === 'function'){
       DOE.requestPermission().then(function(res){
-        if(res === 'granted'){
-          activateTilt();
-        } else {
-          els.tiltStatus.innerHTML = '<span class="status-dot"></span>Permission denied';
-        }
+        if(res === 'granted'){ activateTilt(); }
+        else { els.tiltStatus.innerHTML = '<span class="status-dot"></span>Permission denied'; }
       }).catch(function(){
         els.tiltStatus.innerHTML = '<span class="status-dot"></span>Permission error';
       });
@@ -328,49 +338,20 @@
     state.tiltOn = true;
     els.tiltStatus.innerHTML = '<span class="status-dot on"></span>Tilt on';
     els.tiltReadout.style.display = 'flex';
-    els.calBtn.disabled = false;
     checkReady();
   }
 
   function checkReady(){
-    if(state.camOn || state.tiltOn){
-      els.viewSection.classList.remove('disabled');
+    if(state.tiltOn && stage === 'blocked'){
+      stage = 'calibrate';
+      renderAction();
+    } else if(state.camOn && stage === 'blocked'){
+      els.actionHint.textContent = 'Also enable the tilt sensor to measure angles.';
     }
   }
 
-  // ---- Calibration ----
-  els.calBtn.addEventListener('click', function(){
-    if(state.currentBeta == null) return;
-    state.betaZero = state.currentBeta;
-    els.calStatus.textContent = 'set (' + state.betaZero.toFixed(1) + '\u00b0)';
-    els.refSection.classList.remove('disabled');
-    els.captureBase.disabled = false;
-  });
-
-  function elevOf(raw){
-    return raw - state.betaZero;
-  }
-  function tanDiff(a, b){
-    return Math.abs(Math.tan(a * Math.PI/180) - Math.tan(b * Math.PI/180));
-  }
-
-  // ---- Reference capture ----
-  els.captureBase.addEventListener('click', function(){
-    if(state.currentBeta == null) return;
-    state.baseRaw = state.currentBeta;
-    els.captureRefTop.disabled = false;
-    renderRefReadouts();
-  });
-  els.captureRefTop.addEventListener('click', function(){
-    if(state.currentBeta == null) return;
-    state.refTopRaw = state.currentBeta;
-    renderRefReadouts();
-    tryComputeDistance();
-  });
-  els.refHeight.addEventListener('change', function(){
-    saveState({ refHeight: els.refHeight.value });
-    tryComputeDistance();
-  });
+  function elevOf(raw){ return raw - state.betaZero; }
+  function tanDiff(a, b){ return Math.abs(Math.tan(a * Math.PI/180) - Math.tan(b * Math.PI/180)); }
 
   function renderRefReadouts(){
     var html = '';
@@ -380,48 +361,89 @@
     if(state.refTopRaw != null){
       html += '<div class="readout-row"><span>Reference top angle</span><span class="val">' + elevOf(state.refTopRaw).toFixed(1) + '\u00b0</span></div>';
     }
+    if(distanceD != null){
+      html += '<div class="readout-row"><span>Horizontal distance</span><span class="val">' + formatFtIn(distanceD) + '</span></div>';
+    }
     els.refReadouts.innerHTML = html;
   }
-
-  var distanceD = null;
-  function tryComputeDistance(){
-    var refH = parseFtIn(els.refHeight.value);
-    if(refH == null || state.baseRaw == null || state.refTopRaw == null) return;
-    var diff = tanDiff(elevOf(state.refTopRaw), elevOf(state.baseRaw));
-    if(diff === 0) return;
-    distanceD = refH / diff;
-    els.targetSection.classList.remove('disabled');
-    els.captureTarget.disabled = false;
-    var row = '<div class="readout-row"><span>Horizontal distance</span><span class="val">' + formatFtIn(distanceD) + '</span></div>';
-    if(!/Horizontal distance/.test(els.refReadouts.innerHTML)){
-      els.refReadouts.innerHTML += row;
-    }
-  }
-
-  // ---- Target capture ----
-  els.captureTarget.addEventListener('click', function(){
-    if(state.currentBeta == null || distanceD == null) return;
-    state.targetTopRaw = state.currentBeta;
-    var diff = tanDiff(elevOf(state.targetTopRaw), elevOf(state.baseRaw));
-    var h = distanceD * diff;
-    showResult(h, distanceD);
-  });
 
   function showResult(h, d){
     els.resultSection.style.display = 'block';
     els.resultHeight.textContent = formatFtIn(h);
     els.resultDistance.textContent = formatFtIn(d);
-    els.resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
+  // Single dynamic action button, driven by `stage`
+  function renderAction(){
+    if(stage === 'blocked'){
+      els.actionBtn.disabled = true;
+      els.actionBtn.textContent = 'Enable sensors above to begin';
+      els.actionHint.textContent = 'Turn on the tilt sensor (camera is optional, for aiming).';
+      return;
+    }
+    els.actionBtn.disabled = false;
+    els.refSection.classList.toggle('disabled', stage === 'calibrate' || stage === 'blocked');
+    if(stage === 'calibrate'){
+      els.actionBtn.textContent = 'Calibrate level (aim at true horizon, tap)';
+      els.actionHint.textContent = 'Hold the phone level with the horizon, then tap.';
+    } else if(stage === 'base'){
+      els.actionBtn.textContent = 'Capture base angle';
+      els.actionHint.textContent = 'Aim the crosshair at the shared base of both objects, then tap.';
+    } else if(stage === 'refTop'){
+      els.actionBtn.textContent = 'Capture reference top';
+      els.actionHint.textContent = 'Aim at the top of the known-height reference object, then tap.';
+    } else if(stage === 'target'){
+      els.actionBtn.textContent = 'Capture target top';
+      els.actionHint.textContent = 'Aim at the top of the object you\'re measuring, then tap. Tap again for another object.';
+    }
+  }
+
+  els.actionBtn.addEventListener('click', function(){
+    if(state.currentBeta == null) return;
+    if(stage === 'calibrate'){
+      state.betaZero = state.currentBeta;
+      els.calStatus.textContent = 'set (' + state.betaZero.toFixed(1) + '\u00b0)';
+      stage = 'base';
+    } else if(stage === 'base'){
+      state.baseRaw = state.currentBeta;
+      renderRefReadouts();
+      stage = 'refTop';
+    } else if(stage === 'refTop'){
+      var refH = parseFtIn(els.refHeight.value);
+      if(refH == null){
+        els.actionHint.textContent = 'Enter the reference height above before capturing this angle.';
+        return;
+      }
+      state.refTopRaw = state.currentBeta;
+      var diff = tanDiff(elevOf(state.refTopRaw), elevOf(state.baseRaw));
+      if(diff === 0){
+        els.actionHint.textContent = 'Base and reference-top angles matched \u2014 aim higher and recapture.';
+        state.refTopRaw = null;
+        return;
+      }
+      distanceD = refH / diff;
+      renderRefReadouts();
+      stage = 'target';
+    } else if(stage === 'target'){
+      var targetRaw = state.currentBeta;
+      var d2 = tanDiff(elevOf(targetRaw), elevOf(state.baseRaw));
+      var h = distanceD * d2;
+      showResult(h, distanceD);
+    }
+    renderAction();
+  });
+
+  els.refHeight.addEventListener('change', function(){
+    saveState({ refHeight: els.refHeight.value });
+  });
+
   els.resetBtn.addEventListener('click', function(){
-    state.baseRaw = state.refTopRaw = state.targetTopRaw = null;
+    state.baseRaw = state.refTopRaw = null;
     distanceD = null;
     els.refReadouts.innerHTML = '';
-    els.captureRefTop.disabled = true;
-    els.targetSection.classList.add('disabled');
-    els.captureTarget.disabled = true;
     els.resultSection.style.display = 'none';
+    stage = state.betaZero != null ? 'base' : 'calibrate';
+    renderAction();
   });
 
   // ---- Manual mode ----
@@ -445,6 +467,8 @@
     var h = d * tanDiff(targetTop, base);
     showResult(h, d);
   });
+
+  renderAction();
 })();
 </script>
 </body>
