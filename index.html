@@ -121,8 +121,14 @@
   }
   .toggle-link{
     background:none; border:none; color:var(--muted); text-decoration:underline;
-    width:auto; padding:0; font-size:13px; margin-top:10px;
+    width:auto; padding:0; font-size:13px; margin-top:10px; display:block;
   }
+  .swatch-row{ display:flex; flex-wrap:wrap; gap:12px; padding-top:2px; }
+  .swatch{
+    width:36px; height:36px; border-radius:50%; border:2px solid transparent;
+    cursor:pointer; padding:0; outline-offset:3px;
+  }
+  .swatch.selected{ outline:2px solid var(--ink); }
   details{font-size:13px; color:var(--muted); margin-top:6px;}
   details summary{cursor:pointer;}
   details .formula{font-family:var(--mono); font-size:13px; color:var(--ink); margin:8px 0;}
@@ -142,6 +148,12 @@
   <button id="modeHeightBtn" class="primary">Height calculator</button>
   <button id="modeClinoBtn">Clinometer</button>
 </div>
+
+<button id="appearanceToggle" class="toggle-link" style="margin:-6px 0 14px;">Appearance</button>
+<section id="appearanceSection" style="display:none;">
+  <p class="step-label">Accent color</p>
+  <div class="swatch-row" id="swatchRow"></div>
+</section>
 
 <div id="secureWarn" class="warn" style="display:none;">
   Camera and tilt sensors need a secure connection (https, or localhost). Deploy this to GitHub Pages or another https host to enable sensors.
@@ -282,7 +294,8 @@
    'refReadouts','resultSection','resultHeight','resultDistance','resultAngle','resetBtn',
    'manualToggle','manualSection','mRef','mBase','mRefTop','mTargetTop','manualCalc',
    'secureWarn','actionBtn','actionHint','stickyPanel','stickyAnchor','crosshairRing','calLabel',
-   'modeHeightBtn','modeClinoBtn','clinoSection','clinoCurrent','clinoCurrentSub','clinoLog','clinoClear'
+   'modeHeightBtn','modeClinoBtn','clinoSection','clinoCurrent','clinoCurrentSub','clinoLog','clinoClear',
+   'appearanceToggle','appearanceSection','swatchRow'
   ].forEach(function(id){ els[id] = document.getElementById(id); });
 
   // ---- Pin the sighting panel to the top once it scrolls there ----
@@ -341,6 +354,39 @@
 
   var saved = loadState();
   if(saved.refHeight) els.refHeight.value = saved.refHeight;
+
+  // ---- Appearance (accent color presets) ----
+  var ACCENT_PRESETS = [
+    { name: 'Forest', hex: '#2f6b4f' },
+    { name: 'Ocean',  hex: '#2b6ca3' },
+    { name: 'Rust',   hex: '#b1512f' },
+    { name: 'Plum',   hex: '#7a4f9e' },
+    { name: 'Slate',  hex: '#55606b' },
+    { name: 'Berry',  hex: '#a3315a' }
+  ];
+  function applyAccent(hex, doSave){
+    document.documentElement.style.setProperty('--accent', hex);
+    document.documentElement.style.setProperty('--accent-ink', '#ffffff');
+    if(doSave) saveState({ accent: hex });
+    renderSwatches(hex);
+  }
+  function renderSwatches(current){
+    els.swatchRow.innerHTML = ACCENT_PRESETS.map(function(p){
+      var sel = (current && p.hex.toLowerCase() === current.toLowerCase()) ? ' selected' : '';
+      return '<button type="button" class="swatch' + sel + '" data-hex="' + p.hex +
+        '" style="background:' + p.hex + ';" title="' + p.name + '" aria-label="' + p.name + '"></button>';
+    }).join('');
+    Array.prototype.forEach.call(els.swatchRow.querySelectorAll('.swatch'), function(btn){
+      btn.addEventListener('click', function(){ applyAccent(btn.getAttribute('data-hex'), true); });
+    });
+  }
+  applyAccent(saved.accent || ACCENT_PRESETS[0].hex, false);
+
+  els.appearanceToggle.addEventListener('click', function(){
+    var showing = els.appearanceSection.style.display === 'block';
+    els.appearanceSection.style.display = showing ? 'none' : 'block';
+    els.appearanceToggle.textContent = showing ? 'Appearance' : 'Hide appearance options';
+  });
 
   // ---- Camera ----
   els.camBtn.addEventListener('click', function(){
