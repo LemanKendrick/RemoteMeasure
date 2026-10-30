@@ -1,7 +1,7 @@
 // Bump this string any time index.html (or any cached asset) changes.
 // Changing it creates a new cache, so the fetch handler naturally starts
 // serving fresh files while the old cache gets swept up in activate().
-const CACHE_VERSION = 'remote-height-v2';
+const CACHE_VERSION = 'remote-height-v3';
 
 const PRECACHE_URLS = [
   './',
