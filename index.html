@@ -133,6 +133,7 @@
   .swatch.selected{ outline:2px solid var(--ink); }
   details{font-size:13px; color:var(--muted); margin-top:6px;}
   details summary{cursor:pointer;}
+  details .how-h{font-size:14px; font-weight:500; color:var(--ink); margin:16px 0 4px;}
   details .formula{font-family:var(--mono); font-size:13px; color:var(--ink); margin:8px 0;}
   .status-dot{
     display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; background:var(--line);
@@ -238,15 +239,32 @@
 
 <details>
   <summary>How this works</summary>
+
+  <h3 class="how-h">Both modes</h3>
+  <p>The app reads your phone's tilt sensor and converts it to the elevation angle of the camera's line of sight, the point under the crosshair. Sight with the crosshair, not the phone's edge. Angles above horizontal are positive and angles below are negative.</p>
+  <p><b>Calibrate first.</b> Hold the phone upright in portrait with the camera pointing at true horizontal. Held plumb, the raw tilt reads about 90&deg;, and the "vs vertical" hint shows how close you are (green is within 1&deg;). Use a distant level horizon or press the back of the phone flat against a plumb surface. Calibration records that reading as zero, and every later angle is measured from it. It is shared between modes, so you only do it once per session.</p>
+  <p><b>Every capture is steadied.</b> When you tap the button, the app samples for about 0.6 seconds and uses the median reading, which ignores brief spikes from hand tremor and sensor noise. Brace your elbow or the phone against something solid while it counts.</p>
+
+  <h3 class="how-h">Height calculator</h3>
   <p>Height between two sighted points at the same horizontal distance D:</p>
   <p class="formula">H = D &times; |tan(top) &minus; tan(base)|</p>
-  <p>The reference object's known height gives D. That same D, applied to the target's own top angle (sighted from the same base), gives the target's height:</p>
+  <p>Stand a reference object of known height at the base of the target. Sight the shared base (&beta;), then the top of the reference (&alpha;1). The reference height gives D:</p>
   <p class="formula">D = H_ref / |tan(&alpha;1) &minus; tan(&beta;)|</p>
+  <p>Without moving, sight the top of the target (&alpha;2). The same D gives its height:</p>
   <p class="formula">H_target = D &times; |tan(&alpha;2) &minus; tan(&beta;)|</p>
-  <p>Once you calibrate, the live number in the viewfinder (labeled "incline") is your elevation angle from horizontal, updating in real time &mdash; you can use it as a standalone clinometer just by calibrating and reading that number, without running the rest of the height workflow.</p>
-  <p>The tilt readout's "vs vertical" hint assumes the phone is held upright in portrait, camera on the back pointing at the target &mdash; that position reads about 90&deg; on most phones' tilt sensor when truly plumb. It's a guide for calibrating, not a substitute for a real level reference.</p>
-  <p>Accuracy depends on how precisely you aim the crosshair and how level your calibration was. Larger reference heights and shorter distances reduce angle-reading error.</p>
+  <p>You can tap "Capture target top" again to measure other objects from the same spot. Use "Start new measurement" after you move or change the reference. Manual entry accepts angles from a separate inclinometer if you prefer.</p>
+
+  <h3 class="how-h">Clinometer</h3>
+  <p>Clinometer mode skips the reference and distance steps. After calibrating, the viewfinder shows the live "incline" angle, and "Hold reading" captures a steadied value and adds it to the log. Each logged reading is shown three ways:</p>
+  <p class="formula">grade % = tan(angle) &times; 100</p>
+  <p class="formula">pitch = tan(angle) &times; 12 (inches of rise per 12 in. of run)</p>
+  <p>Use it for roof pitch, slope or ramp grade, or any angle from horizontal. To measure a slope, sight along it at a target at the same height as your eye, or lay the phone's back along the surface after calibrating. The log keeps the last 25 readings, and "Clear log" empties it.</p>
+
+  <h3 class="how-h">Accuracy</h3>
+  <p>Results depend on how precisely you aim the crosshair and how level your calibration was. Phone tilt sensors are good for field estimates, not survey-grade work. A taller reference and a shorter distance reduce the effect of angle error on a height. Check a known object after calibrating to see how far off your phone runs.</p>
 </details>
+
+<p style="text-align:center;font-size:11px;color:var(--muted);margin:18px 0 8px;">build v5 &middot; expanded help</p>
 
 </div><!-- /wrap -->
 

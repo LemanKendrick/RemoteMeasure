@@ -1,7 +1,7 @@
 // Bump this string any time index.html (or any cached asset) changes.
 // Changing it creates a new cache, so the fetch handler naturally starts
 // serving fresh files while the old cache gets swept up in activate().
-const CACHE_VERSION = 'remote-height-v3';
+const CACHE_VERSION = 'remote-height-v5';
 
 const PRECACHE_URLS = [
   './',
@@ -31,26 +31,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache-first for same-origin GET requests (this app has no external/API
-// calls), falling back to the network, and to the cached shell page if
-// both fail (e.g. fully offline and a resource was never cached).
+// Network-first for same-origin GETs: always try for the freshest file, keep a
+// copy in the cache, and fall back to the cache when offline. This means
+// updates show up on the next open without any manual cache clearing.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const copy = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(() => caches.match('./index.html'));
-    })
+    fetch(event.request, { cache: 'no-cache' })
+      .then((response) => {
+        if (response && response.status === 200) {
+          const copy = response.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
   );
 });
